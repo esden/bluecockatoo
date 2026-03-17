@@ -432,43 +432,43 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 	}
 	switch m.Command {
 	case "NICK":
-		for dc := range cfg.Channels {
-			discordSend(msgID, dc, fmt.Sprintf("%c%s%c is now known as %s", fItalics, m.Prefix.Name, fReset, m.Params[0]), replyID)
-		}
+		// for dc := range cfg.Channels {
+		// 	discordSend(msgID, dc, fmt.Sprintf("%c%s%c is now known as %s", fItalics, m.Prefix.Name, fReset, m.Params[0]), replyID)
+		// }
 	case "JOIN":
-		dc := discordChannel(m.Params[0])
-		if dc == "" {
-			return
-		}
-		discordSend(msgID, dc, fmt.Sprintf("%c%s%c has joined the channel", fItalics, m.Prefix.Name, fReset), replyID)
+		// dc := discordChannel(m.Params[0])
+		// if dc == "" {
+		// 	return
+		// }
+		// discordSend(msgID, dc, fmt.Sprintf("%c%s%c has joined the channel", fItalics, m.Prefix.Name, fReset), replyID)
 	case "PART":
-		dc := discordChannel(m.Params[0])
-		if dc == "" {
-			return
-		}
-		if len(m.Params) > 1 {
-			discordSend(msgID, dc, fmt.Sprintf("%c%s%c has left the channel: %s", fItalics, m.Prefix.Name, fReset, m.Params[1]), replyID)
-		} else {
-			discordSend(msgID, dc, fmt.Sprintf("%c%s%c has left the channel", fItalics, m.Prefix.Name, fReset), replyID)
-		}
+		// dc := discordChannel(m.Params[0])
+		// if dc == "" {
+		// 	return
+		// }
+		// if len(m.Params) > 1 {
+		// 	discordSend(msgID, dc, fmt.Sprintf("%c%s%c has left the channel: %s", fItalics, m.Prefix.Name, fReset, m.Params[1]), replyID)
+		// } else {
+		// 	discordSend(msgID, dc, fmt.Sprintf("%c%s%c has left the channel", fItalics, m.Prefix.Name, fReset), replyID)
+		// }
 	case "KICK":
-		dc := discordChannel(m.Params[0])
-		if dc == "" {
-			return
-		}
-		if len(m.Params) > 2 {
-			discordSend(msgID, dc, fmt.Sprintf("%c%s%c was kicked off the channel by %s: %s", fItalics, m.Params[1], fReset, m.Prefix.Name, m.Params[2]), replyID)
-		} else {
-			discordSend(msgID, dc, fmt.Sprintf("%c%s%c was kicked off the channel by %s", fItalics, m.Params[1], fReset, m.Prefix.Name), replyID)
-		}
+		// dc := discordChannel(m.Params[0])
+		// if dc == "" {
+		// 	return
+		// }
+		// if len(m.Params) > 2 {
+		// 	discordSend(msgID, dc, fmt.Sprintf("%c%s%c was kicked off the channel by %s: %s", fItalics, m.Params[1], fReset, m.Prefix.Name, m.Params[2]), replyID)
+		// } else {
+		// 	discordSend(msgID, dc, fmt.Sprintf("%c%s%c was kicked off the channel by %s", fItalics, m.Params[1], fReset, m.Prefix.Name), replyID)
+		// }
 	case "QUIT":
-		for dc := range cfg.Channels {
-			if len(m.Params) > 0 {
-				discordSend(msgID, dc, fmt.Sprintf("%c%s%c has quit: %s", fItalics, m.Prefix.Name, fReset, m.Params[0]), replyID)
-			} else {
-				discordSend(msgID, dc, fmt.Sprintf("%c%s%c has quit", fItalics, m.Prefix.Name, fReset), replyID)
-			}
-		}
+		// for dc := range cfg.Channels {
+		// 	if len(m.Params) > 0 {
+		// 		discordSend(msgID, dc, fmt.Sprintf("%c%s%c has quit: %s", fItalics, m.Prefix.Name, fReset, m.Params[0]), replyID)
+		// 	} else {
+		// 		discordSend(msgID, dc, fmt.Sprintf("%c%s%c has quit", fItalics, m.Prefix.Name, fReset), replyID)
+		// 	}
+		// }
 	case "REDACT":
 		dc := discordChannel(m.Params[0])
 		if dc == "" {
