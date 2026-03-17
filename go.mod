@@ -1,4 +1,4 @@
-module github.com/delthas/discord-ircv3
+module github.com/esden/bluecockatoo
 
 go 1.18
 

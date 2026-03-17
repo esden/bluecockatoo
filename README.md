@@ -1,9 +1,11 @@
-# discord-ircv3
+# bluecockatoo
 
 An IRC <-> Discord bridge with support for modern IRCv3 features.
 
+It is based on [discord-ircv3](https://github.com/delthas/discord-ircv3) by @delthas, with some modifications specific to our use on the 1BitSquared Discord server and 1BitSquared IRC Net.
+
 Features:
-- Join / Part / Kick / Disconnect
+- ~~Join / Part / Kick / Disconnect~~ (now disabled as we don't want it on our server)
 - [Typing notifications](https://ircv3.net/specs/client-tags/typing.html)
 - [Message replies support](https://ircv3.net/specs/client-tags/reply.html)
 - Image embedding support
@@ -15,7 +17,7 @@ Requires Go.
 
 To install:
 ```shell
-go install github.com/delthas/discord-ircv3@master
+go install github.com/esden/bluecockatoo@master
 ```
 
 - Create a [Discord app](https://discord.com/developers/docs/getting-started)
@@ -35,7 +37,7 @@ Copy and edit [`config.yaml.example`](config.yaml.example) into `config.yaml`:
 
 Then,
 ```shell
-discord-irc
+bluecockatoo
 ```
 
 ## Status
