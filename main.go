@@ -148,18 +148,6 @@ func ircWrite(m *irc.Message) {
 	ircClient.WriteMessage(m)
 }
 
-func ircRegister() {
-	if cfg.Password != "" {
-		ircClient.WriteMessage(&irc.Message{
-			Command: "PRIVMSG",
-			Params: []string{
-				"nickserv",
-				"identify " + cfg.Nick + " " + cfg.Password,
-			},
-		})
-	}
-}
-
 func discordChannel(irc string) string {
 	for dc, ic := range cfg.Channels {
 		if ic == irc {
@@ -408,6 +396,18 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 	handled := true
 	switch m.Command {
 	case "001":
+		// Identify using nickserv if password is set
+		// Need to do that before join channels
+		// Otherwise we won't be able to join +R and +i channels
+		if cfg.Password != "" {
+			c.WriteMessage(&irc.Message{
+				Command: "PRIVMSG",
+				Params: []string{
+					"nickserv",
+					"identify " + cfg.Nick + " " + cfg.Password,
+				},
+			})
+		}
 		for _, ic := range cfg.Channels {
 			c.WriteMessage(&irc.Message{
 				Command: "JOIN",
@@ -436,7 +436,6 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 		})
 	case "PONG":
 		if m.Params[len(m.Params)-1] == "ready" {
-			ircRegister()
 			ircReady = true
 		}
 	default:
