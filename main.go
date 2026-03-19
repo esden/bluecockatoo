@@ -390,7 +390,7 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 	}
 	msgID := string(m.Tags["msgid"])
 	var replyID string
-	if ids := idIRCDiscord[string(m.Tags["+draft/reply"])]; len(ids) > 0 {
+	if ids := idIRCDiscord[string(m.Tags["+reply"])]; len(ids) > 0 {
 		replyID = ids[len(ids)-1]
 	}
 	handled := true
@@ -728,8 +728,8 @@ func discordMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		ircWrite(&irc.Message{
 			Tags: irc.Tags{
-				"+discord":     irc.TagValue(m.ID),
-				"+draft/reply": irc.TagValue(replyID),
+				"+discord": irc.TagValue(m.ID),
+				"+reply":   irc.TagValue(replyID),
 			},
 			Command: "PRIVMSG",
 			Params:  []string{ic, prefix + body},
@@ -738,8 +738,8 @@ func discordMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	for _, attachment := range m.Attachments {
 		ircWrite(&irc.Message{
 			Tags: irc.Tags{
-				"+discord":     irc.TagValue(m.ID),
-				"+draft/reply": irc.TagValue(replyID),
+				"+discord": irc.TagValue(m.ID),
+				"+reply":   irc.TagValue(replyID),
 			},
 			Command: "PRIVMSG",
 			Params:  []string{ic, prefix + attachment.URL},
@@ -786,7 +786,7 @@ func discordReact(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 	ircWrite(&irc.Message{
 		Tags: irc.Tags{
 			"+draft/react": irc.TagValue(reaction),
-			"+draft/reply": irc.TagValue(replyID),
+			"+reply":       irc.TagValue(replyID),
 		},
 		Command: "TAGMSG",
 		Params:  []string{ic},
