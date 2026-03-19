@@ -726,21 +726,38 @@ func discordMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		body := discordIRCFormat(s, m.GuildID, m.Content)
 		body = replacerNewline.Replace(body)
 
-		ircWrite(&irc.Message{
-			Tags: irc.Tags{
+		tags := irc.Tags{}
+		if replyID == "" {
+			tags = irc.Tags{
+				"+discord": irc.TagValue(m.ID),
+			}
+		} else {
+			tags = irc.Tags{
 				"+discord": irc.TagValue(m.ID),
 				"+reply":   irc.TagValue(replyID),
-			},
+			}
+		}
+
+		ircWrite(&irc.Message{
+			Tags:    tags,
 			Command: "PRIVMSG",
 			Params:  []string{ic, prefix + body},
 		})
 	}
 	for _, attachment := range m.Attachments {
-		ircWrite(&irc.Message{
-			Tags: irc.Tags{
+		tags := irc.Tags{}
+		if replyID == "" {
+			tags = irc.Tags{
+				"+discord": irc.TagValue(m.ID),
+			}
+		} else {
+			tags = irc.Tags{
 				"+discord": irc.TagValue(m.ID),
 				"+reply":   irc.TagValue(replyID),
-			},
+			}
+		}
+		ircWrite(&irc.Message{
+			Tags:    tags,
 			Command: "PRIVMSG",
 			Params:  []string{ic, prefix + attachment.URL},
 		})
