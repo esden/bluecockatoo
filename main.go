@@ -407,16 +407,27 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 					"identify " + cfg.Nick + " " + cfg.Password,
 				},
 			})
+			// Don't JOIN yet — wait for 900 (logged in confirmation)
+		} else {
+			// No password, join immediately
+			for _, ic := range cfg.Channels {
+				c.WriteMessage(&irc.Message{
+					Command: "JOIN",
+					Params:  []string{ic},
+				})
+			}
 		}
+		ircClientLock.Lock()
+		ircClient = c
+		ircClientLock.Unlock()
+	case "900":
+		// Logged in to NickServ — now safe to join +r channels
 		for _, ic := range cfg.Channels {
 			c.WriteMessage(&irc.Message{
 				Command: "JOIN",
 				Params:  []string{ic},
 			})
 		}
-		ircClientLock.Lock()
-		ircClient = c
-		ircClientLock.Unlock()
 	case "005":
 		if len(m.Params) > 2 {
 			for _, param := range m.Params[1 : len(m.Params)-1] {
