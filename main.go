@@ -37,6 +37,8 @@ type Config struct {
 	Server       string            `yaml:"server"`
 	Nick         string            `yaml:"nickname"`
 	Password     string            `yaml:"password"`
+	User         string            `yaml:"username"`
+	Name         string            `yaml:"realname"`
 	Channels     map[string]string `yaml:"channels"` // Discord ID to IRC name
 }
 
@@ -113,10 +115,18 @@ func ircLoop() error {
 	if err != nil {
 		return err
 	}
+	User := "discordircv3"
+	if (cfg.User != "") {
+		User = cfg.User
+	}
+	Name := "discord-ircv3 bridge"
+	if (cfg.Name != "") {
+		Name = cfg.Name
+	}
 	c := irc.NewClient(tc, irc.ClientConfig{
 		Nick:          cfg.Nick,
-		User:          "discordircv3",
-		Name:          "discord-ircv3 bridge",
+		User:          User,
+		Name:          Name,
 		PingFrequency: 10 * time.Minute,
 		PingTimeout:   30 * time.Second,
 		SendLimit:     500 * time.Millisecond,
