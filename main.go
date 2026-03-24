@@ -33,13 +33,14 @@ const (
 )
 
 type Config struct {
-	DiscordToken string            `yaml:"discordToken"`
-	Server       string            `yaml:"server"`
-	Nick         string            `yaml:"nickname"`
-	Password     string            `yaml:"password"`
-	User         string            `yaml:"username"`
-	Name         string            `yaml:"realname"`
-	Channels     map[string]string `yaml:"channels"` // Discord ID to IRC name
+	DiscordToken  string            `yaml:"discordToken"`
+	Server        string            `yaml:"server"`
+	Nick          string            `yaml:"nickname"`
+	Password      string            `yaml:"password"`
+	User          string            `yaml:"username"`
+	Name          string            `yaml:"realname"`
+	WaitForAuth   bool              `yaml:"waitForAuth,omitempty"`
+	Channels      map[string]string `yaml:"channels"`              // Discord ID to IRC name
 }
 
 var cfg Config
@@ -419,7 +420,16 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 					"identify " + cfg.Nick + " " + cfg.Password,
 				},
 			})
-			// Don't JOIN yet — wait for 900 (logged in confirmation)
+			if !cfg.WaitForAuth {
+				// Join immediately after identify (works on Ergo, some others)
+				for _, ic := range cfg.Channels {
+					c.WriteMessage(&irc.Message{
+						Command: "JOIN",
+						Params:  []string{ic},
+					})
+				}
+			}
+			// If WaitForAuth is true, wait for 900 (logged in confirmation)
 		} else {
 			// No password, join immediately
 			for _, ic := range cfg.Channels {
