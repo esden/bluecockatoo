@@ -33,11 +33,14 @@ const (
 )
 
 type Config struct {
-	DiscordToken string            `yaml:"discordToken"`
-	Server       string            `yaml:"server"`
-	Nick         string            `yaml:"nickname"`
-	Password     string            `yaml:"password"`
-	Channels     map[string]string `yaml:"channels"` // Discord ID to IRC name
+	DiscordToken  string            `yaml:"discordToken"`
+	Server        string            `yaml:"server"`
+	Nick          string            `yaml:"nickname"`
+	Password      string            `yaml:"password"`
+	User          string            `yaml:"username"`
+	Name          string            `yaml:"realname"`
+	WaitForAuth   bool              `yaml:"waitForAuth,omitempty"`
+	Channels      map[string]string `yaml:"channels"`              // Discord ID to IRC name
 }
 
 var cfg Config
@@ -111,10 +114,18 @@ func ircLoop() error {
 	if err != nil {
 		return err
 	}
+	User := "discordircv3"
+	if (cfg.User != "") {
+		User = cfg.User
+	}
+	Name := "discord-ircv3 bridge"
+	if (cfg.Name != "") {
+		Name = cfg.Name
+	}
 	c := irc.NewClient(tc, irc.ClientConfig{
 		Nick:          cfg.Nick,
-		User:          "discordircv3",
-		Name:          "discord-ircv3 bridge",
+		User:          User,
+		Name:          Name,
 		PingFrequency: 10 * time.Minute,
 		PingTimeout:   30 * time.Second,
 		SendLimit:     500 * time.Millisecond,
@@ -407,16 +418,36 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 					"identify " + cfg.Nick + " " + cfg.Password,
 				},
 			})
+			if !cfg.WaitForAuth {
+				// Join immediately after identify (works on Ergo, some others)
+				for _, ic := range cfg.Channels {
+					c.WriteMessage(&irc.Message{
+						Command: "JOIN",
+						Params:  []string{ic},
+					})
+				}
+			}
+			// If WaitForAuth is true, wait for 900 (logged in confirmation)
+		} else {
+			// No password, join immediately
+			for _, ic := range cfg.Channels {
+				c.WriteMessage(&irc.Message{
+					Command: "JOIN",
+					Params:  []string{ic},
+				})
+			}
 		}
+		ircClientLock.Lock()
+		ircClient = c
+		ircClientLock.Unlock()
+	case "900":
+		// Logged in to NickServ — now safe to join +r channels
 		for _, ic := range cfg.Channels {
 			c.WriteMessage(&irc.Message{
 				Command: "JOIN",
 				Params:  []string{ic},
 			})
 		}
-		ircClientLock.Lock()
-		ircClient = c
-		ircClientLock.Unlock()
 	case "005":
 		if len(m.Params) > 2 {
 			for _, param := range m.Params[1 : len(m.Params)-1] {
