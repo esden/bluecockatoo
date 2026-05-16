@@ -78,6 +78,7 @@ func main() {
 	discord.AddHandler(discordMessage)
 	discord.AddHandler(discordDelete)
 	discord.AddHandler(discordReact)
+	discord.AddHandler(discordUnreact)
 	discord.AddHandler(discordTyping)
 
 	go func() {
@@ -503,6 +504,9 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 		if react := string(m.Tags["+draft/react"]); react != "" {
 			discord.MessageReactionAdd(dc, replyID, react)
 		}
+		if unreact := string(m.Tags["+draft/unreact"]); unreact != "" {
+			discord.MessageReactionRemove(dc, replyID, unreact, "@me")
+		}
 	case "PRIVMSG":
 		dc := discordChannel(m.Params[0])
 		if dc == "" {
@@ -804,6 +808,34 @@ func discordReact(s *discordgo.Session, m *discordgo.MessageReactionAdd) {
 		Tags: irc.Tags{
 			"+draft/react": irc.TagValue(reaction),
 			"+reply":       irc.TagValue(replyID),
+		},
+		Command: "TAGMSG",
+		Params:  []string{ic},
+	})
+}
+
+func discordUnreact(s *discordgo.Session, m *discordgo.MessageReactionRemove) {
+	if m.UserID == s.State.User.ID {
+		return
+	}
+	ic, ok := cfg.Channels[m.ChannelID]
+	if !ok {
+		return
+	}
+	reaction := m.Emoji.Name
+	if reaction == "" {
+		return
+	}
+	replyID := ""
+	if ids := idDiscordIRC[m.MessageID]; len(ids) > 0 {
+		replyID = ids[0]
+	} else {
+		return
+	}
+	ircWrite(&irc.Message{
+		Tags: irc.Tags{
+			"+draft/unreact": irc.TagValue(reaction),
+			"+reply":         irc.TagValue(replyID),
 		},
 		Command: "TAGMSG",
 		Params:  []string{ic},
