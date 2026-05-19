@@ -48,6 +48,8 @@ var logErr = log.New(os.Stderr, "err:", log.LstdFlags)
 var ircClientLock sync.Mutex
 var ircClient *irc.Client
 var ircReady bool
+var ircHasBotMode bool = false
+var ircBotModeVal string
 
 var discord *discordgo.Session
 
@@ -423,10 +425,8 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 				key, value, _ := strings.Cut(param, "=")
 				switch key {
 				case "BOT":
-					c.WriteMessage(&irc.Message{
-						Command: "MODE",
-						Params:  []string{c.CurrentNick(), "+" + value},
-					})
+					ircHasBotMode = true
+					ircBotModeVal = value
 				}
 			}
 		}
@@ -434,6 +434,17 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 			Command: "PING",
 			Params:  []string{"ready"},
 		})
+	case "NOTICE":
+		if len(m.Params) > 1 {
+			if strings.HasPrefix(m.Params[1], "You're now logged in as") {
+				if ircHasBotMode {
+					c.WriteMessage(&irc.Message{
+						Command: "MODE",
+						Params:  []string{c.CurrentNick(), "+" + ircBotModeVal},
+					})
+				}
+			}
+		}
 	case "PONG":
 		if m.Params[len(m.Params)-1] == "ready" {
 			ircReady = true
