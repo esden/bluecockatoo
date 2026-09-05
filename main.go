@@ -126,6 +126,8 @@ func ircLoop() error {
 	c.CapRequest("message-tags", false)
 	c.CapRequest("echo-message", false)
 	c.CapRequest("draft/message-redaction", false)
+	c.CapRequest("batch", false)
+	c.CapRequest("draft/multiline", false)
 	if debug {
 		c.Writer.DebugCallback = func(line string) {
 			fmt.Printf(">>> %s\n", line)
@@ -692,6 +694,31 @@ func discordReady(s *discordgo.Session, m *discordgo.Ready) {
 	}
 }
 
+func messageChunks(s string) []string {
+	// worst case scenario message content length available
+	chunkSize := 350
+	// We don't need to check for 0 as the length is hardcoded
+	// if len(s) == 0 {
+	// 	return nil
+	// }
+	if chunkSize >= len(s) {
+		return []string{s}
+	}
+	var chunks []string = make([]string, 0, (len(s)-1)/chunkSize+1)
+	currentLen := 0
+	currentStart := 0
+	for i := range s {
+		if currentLen == chunkSize {
+			chunks = append(chunks, s[currentStart:i])
+			currentLen = 0
+			currentStart = i
+		}
+		currentLen++
+	}
+	chunks = append(chunks, s[currentStart:])
+	return chunks
+}
+
 func discordMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
@@ -733,44 +760,78 @@ func discordMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 	prefix := fmt.Sprintf("<%s%s%c> ", color, nick, fReset)
 
+	// put together the necessary message tags
+	tags := irc.Tags{
+		"+discord": irc.TagValue(m.ID),
+	}
+	if replyID != "" {
+		tags["+reply"] = irc.TagValue(replyID)
+	}
+	if debug {
+		fmt.Printf("dc> tags: %+v\n", tags)
+	}
+
+	// Figure out the content of the message
+	content := ""
 	if len(m.Content) > 0 {
 		body := discordIRCFormat(s, m.GuildID, m.Content)
-		body = replacerNewline.Replace(body)
+		//body = replacerNewline.Replace(body)
 
-		tags := irc.Tags{}
-		if replyID == "" {
-			tags = irc.Tags{
-				"+discord": irc.TagValue(m.ID),
-			}
-		} else {
-			tags = irc.Tags{
-				"+discord": irc.TagValue(m.ID),
-				"+reply":   irc.TagValue(replyID),
-			}
-		}
-
-		ircWrite(&irc.Message{
-			Tags:    tags,
-			Command: "PRIVMSG",
-			Params:  []string{ic, prefix + body},
-		})
+		content = prefix + body
 	}
 	for _, attachment := range m.Attachments {
-		tags := irc.Tags{}
-		if replyID == "" {
-			tags = irc.Tags{
-				"+discord": irc.TagValue(m.ID),
-			}
-		} else {
-			tags = irc.Tags{
-				"+discord": irc.TagValue(m.ID),
-				"+reply":   irc.TagValue(replyID),
+		content = content + "\n" + attachment.URL
+	}
+	if debug {
+		fmt.Printf("dc> content: %s\n", content)
+	}
+	// Multiline message
+	// Either when the message contains newlines, or a single line exceeds the worst case scenario message length of 350 characters
+	if strings.Contains(content, "\n") || len(content) > 350 {
+		if debug {
+			fmt.Printf("dc> multiline message length %i", len(content))
+		}
+		batch := "bcbatch"
+		// start batch
+		ircWrite(&irc.Message{
+			Tags: tags,
+			Command: "BATCH",
+			Params: []string{"+" + batch, "draft/multiline", ic},
+		})
+		// content
+		batch_tags := irc.Tags{"batch": irc.TagValue(batch)}
+		batch_concat_tags := irc.Tags{
+			"batch": irc.TagValue(batch),
+			"draft/multiline-concat": irc.TagValue(""),
+		}
+		for _, line := range strings.Split(strings.TrimSuffix(content, "\n"), "\n") {
+			msg_chunks := messageChunks(line)
+			// send the first chunk of the message
+			ircWrite(&irc.Message{
+				Tags: batch_tags,
+				Command: "PRIVMSG",
+				Params: []string{ic, msg_chunks[0]},
+			})
+			for _, chunk := range msg_chunks[1:] {
+				ircWrite(&irc.Message{
+					Tags: batch_concat_tags,
+					Command: "PRIVMSG",
+					Params: []string{ic, chunk},
+				})
 			}
 		}
+		// endbatch
+		ircWrite(&irc.Message{
+			Tags: irc.Tags{},
+			Command: "BATCH",
+			Params: []string{"-" + batch},
+		})
+	} else {
+		// Send the message
 		ircWrite(&irc.Message{
 			Tags:    tags,
 			Command: "PRIVMSG",
-			Params:  []string{ic, prefix + attachment.URL},
+			Params:  []string{ic, content},
 		})
 	}
 }
