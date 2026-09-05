@@ -554,12 +554,6 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 	}
 }
 
-var replacerNewline = strings.NewReplacer(
-	"\r\n", " ",
-	"\n", " ",
-	"\r", " ",
-)
-
 var validColors = []int{2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13}
 
 var discordParser = formatting.NewParser(nil)
