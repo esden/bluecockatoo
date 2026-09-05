@@ -10,6 +10,7 @@ Features:
 - [Message replies support](https://ircv3.net/specs/client-tags/reply.html)
 - Image embedding support
 - Advanced [Discord->IRC formatting](https://github.com/delthas/discord-formatting) support
+- [Multiline support](https://ircv3.net/specs/extensions/multiline)
 
 ## Setup
 
