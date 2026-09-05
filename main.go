@@ -518,15 +518,16 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 		}
 	case "BATCH":
 		if debug {
-			fmt.Print("IRC> Got BATCH\n")
+			fmt.Println("DC> Got BATCH")
 			for n, dc := range m.Params {
-				fmt.Printf("IRC> Param %d - %s\n", n, dc)
+				fmt.Printf("DC> Param %d - %s\n", n, dc)
 			}
 			for tag, value := range m.Tags {
-				fmt.Printf("IRC> Tag %s - %+v\n", tag, value)
+				fmt.Printf("DC> Tag %s - %+v\n", tag, value)
 			}
 		}
 
+		// Get the batch id
 		if m.Params[0][0] != '+' && m.Params[0][0] != '-' {
 			if debug { fmt.Print("Malformed BATCH id: Does not start with a + or -") }
 			return
@@ -810,7 +811,7 @@ func discordMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		tags["+reply"] = irc.TagValue(replyID)
 	}
 	if debug {
-		fmt.Printf("dc> tags: %+v\n", tags)
+		fmt.Printf("DC< tags: %+v\n", tags)
 	}
 
 	// Figure out the content of the message
@@ -825,14 +826,14 @@ func discordMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		content = content + "\n" + attachment.URL
 	}
 	if debug {
-		fmt.Printf("dc> content: %s\n", content)
+		fmt.Printf("DC< content: %s\n", content)
 	}
 
 	// Multiline message
 	// Either when the message contains newlines, or a single line exceeds the worst case scenario message length of 350 characters
 	if strings.Contains(content, "\n") || len(content) > 350 {
 		if debug {
-			fmt.Printf("dc> multiline message length %d", len(content))
+			fmt.Printf("DC< multiline message length %d", len(content))
 		}
 		batch := "bcbatch"
 		// start batch
