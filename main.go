@@ -694,6 +694,7 @@ func discordReady(s *discordgo.Session, m *discordgo.Ready) {
 	}
 }
 
+// Chop up a message line so that it fits into the IRC PRIVMSG length limit
 func messageChunks(s string) []string {
 	// worst case scenario message content length available
 	chunkSize := 350
@@ -760,7 +761,7 @@ func discordMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 	prefix := fmt.Sprintf("<%s%s%c> ", color, nick, fReset)
 
-	// put together the necessary message tags
+	// Put together the necessary message tags
 	tags := irc.Tags{
 		"+discord": irc.TagValue(m.ID),
 	}
@@ -785,11 +786,12 @@ func discordMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if debug {
 		fmt.Printf("dc> content: %s\n", content)
 	}
+
 	// Multiline message
 	// Either when the message contains newlines, or a single line exceeds the worst case scenario message length of 350 characters
 	if strings.Contains(content, "\n") || len(content) > 350 {
 		if debug {
-			fmt.Printf("dc> multiline message length %i", len(content))
+			fmt.Printf("dc> multiline message length %d", len(content))
 		}
 		batch := "bcbatch"
 		// start batch
@@ -802,7 +804,7 @@ func discordMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 		batch_tags := irc.Tags{"batch": irc.TagValue(batch)}
 		batch_concat_tags := irc.Tags{
 			"batch": irc.TagValue(batch),
-			"draft/multiline-concat": irc.TagValue(""),
+			"draft/multiline-concat": irc.TagValue(""), // this tag has no value
 		}
 		for _, line := range strings.Split(strings.TrimSuffix(content, "\n"), "\n") {
 			msg_chunks := messageChunks(line)
@@ -812,6 +814,7 @@ func discordMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 				Command: "PRIVMSG",
 				Params: []string{ic, msg_chunks[0]},
 			})
+			// send line continuations if the line, if it exceeds the max length
 			for _, chunk := range msg_chunks[1:] {
 				ircWrite(&irc.Message{
 					Tags: batch_concat_tags,
@@ -827,7 +830,7 @@ func discordMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 			Params: []string{"-" + batch},
 		})
 	} else {
-		// Send the message
+		// Send a regular message
 		ircWrite(&irc.Message{
 			Tags:    tags,
 			Command: "PRIVMSG",
