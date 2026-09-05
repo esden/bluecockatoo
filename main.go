@@ -389,7 +389,7 @@ func discordSend(id string, channel string, msg string, replyID string) {
 }
 
 func ircHandler(c *irc.Client, m *irc.Message) {
-	if m.Name == c.CurrentNick() && m.Command != "PRIVMSG" {
+	if m.Name == c.CurrentNick() && m.Command != "PRIVMSG" && m.Command != "BATCH" {
 		return
 	}
 	msgID := string(m.Tags["msgid"])
@@ -516,6 +516,53 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 		if react := string(m.Tags["+draft/react"]); react != "" {
 			discord.MessageReactionAdd(dc, replyID, react)
 		}
+	case "BATCH":
+		if debug {
+			fmt.Print("IRC> Got BATCH\n")
+			for n, dc := range m.Params {
+				fmt.Printf("IRC> Param %d - %s\n", n, dc)
+			}
+			for tag, value := range m.Tags {
+				fmt.Printf("IRC> Tag %s - %+v\n", tag, value)
+			}
+		}
+
+		if m.Params[0][0] != '+' && m.Params[0][0] != '-' {
+			if debug { fmt.Print("Malformed BATCH id: Does not start with a + or -") }
+			return
+		}
+		batch_start := m.Params[0][0] == '+'
+		//batch_id := m.Params[0][1:]
+
+		if batch_start {
+			if len(m.Params) != 3 {
+				if debug { fmt.Print("Malformed BATCH start: Expecting three parameters") }
+				return
+			}
+
+			// check if it is a multiline message batch, otherwise we are not interested
+			if m.Params[1] != "draft/multiline" { return }
+
+			// find the associated discord channel and check if the batch is for a channel we care about
+			dc := discordChannel(m.Params[2])
+			if dc == "" { return }
+
+			// check if it is an echo batch, if it is we want to save the message IDs for future reference
+			if m.Name == c.CurrentNick() {
+				if discordID := string(m.Tags["+discord"]); discordID != "" {
+					idIRCDiscord[msgID] = append(idIRCDiscord[msgID], discordID)
+					idDiscordIRC[discordID] = append(idDiscordIRC[discordID], msgID)
+				}
+				return
+			}
+
+			// TODO: Create a batch here
+
+			return
+		}
+
+		// TODO: close and send the batch here
+
 	case "PRIVMSG":
 		dc := discordChannel(m.Params[0])
 		if dc == "" {
