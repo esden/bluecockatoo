@@ -56,6 +56,11 @@ var discord *discordgo.Session
 var idIRCDiscord = make(map[string][]string)
 var idDiscordIRC = make(map[string][]string)
 
+var multilineIRCBatchMsgIDs = make(map[string]string)
+var multilineIRCBatchReplyIDs = make(map[string]string)
+var multilineIRCBatchDiscordChannel = make(map[string]string)
+var multilineIRCBatchBodies = make(map[string][]string)
+
 func main() {
 	flag.BoolVar(&debug, "debug", false, "enable debug logging")
 	configPath := flag.String("config", "config.yaml", "config path")
@@ -533,7 +538,7 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 			return
 		}
 		batch_start := m.Params[0][0] == '+'
-		//batch_id := m.Params[0][1:]
+		batch_id := m.Params[0][1:]
 
 		if batch_start {
 			if len(m.Params) != 3 {
@@ -557,12 +562,47 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 				return
 			}
 
-			// TODO: Create a batch here
+			// We start the batch by storing the message and reply IDs if available
+			multilineIRCBatchMsgIDs[batch_id] = msgID
+			multilineIRCBatchReplyIDs[batch_id] = replyID
+			multilineIRCBatchDiscordChannel[batch_id] = dc
 
 			return
 		}
 
-		// TODO: close and send the batch here
+		dc := multilineIRCBatchDiscordChannel[batch_id]
+		if dc == "" {
+			if debug { fmt.Println("DC> No associated discord channel, skipping") }
+			return
+		}
+
+		if debug {
+			fmt.Printf("DC> Sending batch id %s, with msgID %s and replyID %s containing:\n", batch_id, multilineIRCBatchMsgIDs[batch_id], multilineIRCBatchReplyIDs[batch_id])
+			for n, line := range multilineIRCBatchBodies[batch_id] {
+				fmt.Printf("DC> Line %d - %s\n", n, line)
+			}
+		}
+
+		// collect the lines into one string
+		body := multilineIRCBatchBodies[batch_id][0]
+		for _, line := range multilineIRCBatchBodies[batch_id][1:] {
+			body = body + "\n" + line
+		}
+
+		// send the stuff to discord
+		if !strings.ContainsRune(body, ' ') && patternMediaLink.MatchString(body) {
+			// send image link in its own message so that it can be embedded by discord
+			discordSend("", dc, fmt.Sprintf("%c<%s>", fBold, m.Prefix.Name), multilineIRCBatchReplyIDs[batch_id])
+			discordSend(multilineIRCBatchMsgIDs[batch_id], dc, body, multilineIRCBatchReplyIDs[batch_id])
+		} else {
+			discordSend(multilineIRCBatchMsgIDs[batch_id], dc, fmt.Sprintf("%c<%s>%c %s", fBold, m.Prefix.Name, fReset, body), multilineIRCBatchReplyIDs[batch_id])
+		}
+
+		// Drop the batch as we are done with it
+		delete(multilineIRCBatchMsgIDs, batch_id)
+		delete(multilineIRCBatchReplyIDs, batch_id)
+		delete(multilineIRCBatchDiscordChannel, batch_id)
+		delete(multilineIRCBatchBodies, batch_id)
 
 	case "PRIVMSG":
 		dc := discordChannel(m.Params[0])
@@ -589,6 +629,20 @@ func ircHandler(c *irc.Client, m *irc.Message) {
 			}
 			// a CTCP ACTION is sent as an italicized message
 			body = fmt.Sprintf("%c%s", fItalics, data)
+		}
+		// Check if this message is part of a batch, if it is store it for later
+		if batchID := string(m.Tags["batch"]); batchID != "" {
+			if _, concat := m.Tags["draft/multiline-concat"]; concat {
+				last := len(multilineIRCBatchBodies[batchID])-1
+				if last < 0 {
+					if debug { fmt.Println("DC> Malformed batch line, unexpected concat") }
+					return
+				}
+				multilineIRCBatchBodies[batchID][last] = multilineIRCBatchBodies[batchID][last] + body
+			} else {
+				multilineIRCBatchBodies[batchID] = append(multilineIRCBatchBodies[batchID], body)
+			}
+			return
 		}
 		if !strings.ContainsRune(body, ' ') && patternMediaLink.MatchString(body) {
 			// send image link in its own message so that it can be embedded by discord
